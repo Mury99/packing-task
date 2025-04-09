@@ -106,7 +106,7 @@ readonly class PackingResponseHandler
     {
         foreach ($notPackedItems as $item) {
             throw new SuitablePackageNotFoundException(
-                sprintf('Product %s cannot be packed into any bin due to size/weight limitations.', $item['id']),
+                sprintf('Product ID: %s - cannot be packed into any bin due to size/weight limitations.', $item['id']),
             );
         }
     }
