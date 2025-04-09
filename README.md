@@ -7,6 +7,14 @@
 ### run
 - `php run.php "$(cat sample.json)"`
 
+- PHP ECS: `vendor/bin/ecs`
+- PHP ECS Fixer: `vendor/bin/ecs --fix`
+- PHPStan: `vendor/bin/phpstan analyse src tests`
+- PHPUnit: `vendor/bin/phpunit tests`
+
+### APIs
+- https://www.3dbinpacking.com/en/api-doc#pack-a-shipment
+
 ### adminer
 - Open `http://localhost:8080/?server=mysql&username=root&db=packing`
 - Password: secret
