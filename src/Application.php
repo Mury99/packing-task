@@ -4,16 +4,18 @@ declare(strict_types=1);
 
 namespace App;
 
-use App\Dto\PackRequest;
-use App\Exception\MultipleBinsNotSupportedException;
-use App\Exception\PackingStrategyNotApplicableException;
-use App\Exception\SuitablePackageNotFoundException;
-use App\Formatter\ErrorResponseFormatter;
-use App\Service\PackingService;
+use App\Application\Formatter\ErrorResponseFormatter;
+use App\Domain\Exception\MultipleBinsNotSupportedException;
+use App\Domain\Exception\PackingStrategyNotApplicableException;
+use App\Domain\Exception\SuitablePackageNotFoundException;
+use App\Domain\Packing\PackingCalculatorInterface;
+use App\Infrastructure\Bin3DPacking\Request\PackRequest;
 use Psr\Log\LoggerInterface;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
+use Symfony\Component\Serializer\Exception\PartialDenormalizationException;
+use Symfony\Component\Serializer\Normalizer\DenormalizerInterface;
 use Symfony\Component\Serializer\SerializerInterface;
 use Symfony\Component\Validator\Validator\ValidatorInterface;
 
@@ -22,7 +24,7 @@ readonly class Application
     public function __construct(
         private SerializerInterface $serializer,
         private ValidatorInterface $validator,
-        private PackingService $packingService,
+        private PackingCalculatorInterface $packingCalculator,
         private ErrorResponseFormatter $errorResponseFormatter,
         private LoggerInterface $logger,
     ) {
@@ -30,16 +32,22 @@ readonly class Application
 
     public function run(Request $request): Response
     {
-        $packRequest = $this->serializer->deserialize($request->getContent(), PackRequest::class, 'json');
-        $errors = $this->validator->validate($packRequest);
+        try {
+            $packRequest = $this->serializer->deserialize($request->getContent(), PackRequest::class, 'json', [
+                DenormalizerInterface::COLLECT_DENORMALIZATION_ERRORS => true,
+            ]);
+        } catch (PartialDenormalizationException $e) {
+            return $this->errorResponseFormatter->formatDenormalizationErrors($e);
+        }
 
+        $errors = $this->validator->validate($packRequest);
         if (count($errors) > 0) {
             return $this->errorResponseFormatter->format($errors);
         }
 
         try {
             return new JsonResponse(
-                $this->packingService->calculateBox($packRequest->products)
+                $this->packingCalculator->calculate($packRequest->products)
             );
         } catch (MultipleBinsNotSupportedException $e) {
             return new JsonResponse([

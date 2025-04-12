@@ -12,6 +12,8 @@
 - PHPStan: `vendor/bin/phpstan analyse src tests`
 - PHPUnit: `vendor/bin/phpunit tests`
 
+- or `composer tests` (ECS, PHPStan, PHPUnit)
+
 ### APIs
 - https://www.3dbinpacking.com/en/api-doc#pack-a-shipment
 

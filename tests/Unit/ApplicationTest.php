@@ -5,11 +5,11 @@ declare(strict_types=1);
 namespace App\Tests\Unit;
 
 use App\Application;
-use App\Dto\PackageOutputDto;
-use App\Dto\PackRequest;
-use App\Dto\ProductDto;
-use App\Formatter\ErrorResponseFormatter;
-use App\Service\PackingService;
+use App\Application\Dto\PackageOutputDto;
+use App\Application\Dto\ProductDto;
+use App\Application\Formatter\ErrorResponseFormatter;
+use App\Domain\Packing\PackingCalculatorInterface;
+use App\Infrastructure\Bin3DPacking\Request\PackRequest;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use Psr\Log\LoggerInterface;
@@ -23,11 +23,11 @@ use Symfony\Component\Validator\Validator\ValidatorInterface;
 
 class ApplicationTest extends TestCase
 {
-    private MockObject $packingService;
-
     private MockObject $serializer;
 
     private MockObject $validator;
+
+    private MockObject $packingCalculator;
 
     private MockObject $errorResponseFormatter;
 
@@ -39,14 +39,14 @@ class ApplicationTest extends TestCase
     {
         $this->serializer = $this->createMock(SerializerInterface::class);
         $this->validator = $this->createMock(ValidatorInterface::class);
-        $this->packingService = $this->createMock(PackingService::class);
+        $this->packingCalculator = $this->createMock(PackingCalculatorInterface::class);
         $this->errorResponseFormatter = $this->createMock(ErrorResponseFormatter::class);
         $this->logger = $this->createMock(LoggerInterface::class);
 
         $this->application = new Application(
             $this->serializer,
             $this->validator,
-            $this->packingService,
+            $this->packingCalculator,
             $this->errorResponseFormatter,
             $this->logger
         );
@@ -82,8 +82,8 @@ class ApplicationTest extends TestCase
             ->with($packRequest)
             ->willReturn(new ConstraintViolationList());
 
-        $this->packingService->expects($this->once())
-            ->method('calculateBox')
+        $this->packingCalculator->expects($this->once())
+            ->method('calculate')
             ->with($packRequest->products)
             ->willReturn(new PackageOutputDto(20, 20, 20, 50));
 
@@ -151,6 +151,9 @@ class ApplicationTest extends TestCase
                     'message' => 'This value should be positive.',
                 ],
             ], Response::HTTP_UNPROCESSABLE_ENTITY));
+
+        $this->packingCalculator->expects($this->never())
+            ->method('calculate');
 
         $response = $this->application->run($request);
 

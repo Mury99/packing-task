@@ -4,12 +4,13 @@ declare(strict_types=1);
 
 namespace App\Tests\Unit\Strategy;
 
-use App\Dto\PackageOutputDto;
-use App\Dto\PackRequest;
-use App\Dto\ProductDto;
-use App\Exception\SuitablePackageNotFoundException;
-use App\Provider\BoxProviderInterface;
-use App\Strategy\FallbackPackingStrategy;
+use App\Application\Dto\ProductDto;
+use App\Application\Strategy\SimpleFallbackPackingStrategy;
+use App\Domain\Entity\Packaging;
+use App\Domain\Exception\SuitablePackageNotFoundException;
+use App\Domain\Provider\BoxProviderInterface;
+use App\Domain\Repository\PackagingRepositoryInterface;
+use App\Infrastructure\Bin3DPacking\Request\PackRequest;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 
@@ -17,19 +18,31 @@ class FallbackPackingStrategyTest extends TestCase
 {
     #[DataProvider('packDataProviderHappyPaths')]
     #[DataProvider('packDataProviderUnhappyPaths')]
-    public function testPackFindsSuitableBox(array $boxes, array $products, PackageOutputDto|\Throwable $expected): void
+    public function testPackFindsSuitableBox(array $boxes, array $products, int|\Throwable $expected): void
     {
         $boxProvider = $this->createMock(BoxProviderInterface::class);
         $boxProvider->method('getBoxes')->willReturn($boxes);
 
+        $packagingRepository = $this->createMock(PackagingRepositoryInterface::class);
+
+        if (is_numeric($expected)) {
+            $packagingRepository->expects($this->once())
+                ->method('findByDimensions')
+                ->with(
+                    $boxes[$expected]['width'],
+                    $boxes[$expected]['height'],
+                    $boxes[$expected]['length'],
+                    $boxes[$expected]['maxWeight']
+                )
+                ->willReturn($this->createMock(Packaging::class));
+        }
+
         $packRequest = $this->createPackRequest($products);
 
-        $strategy = new FallbackPackingStrategy($boxProvider);
+        $strategy = new SimpleFallbackPackingStrategy($boxProvider, $packagingRepository);
 
         try {
-            $result = $strategy->pack($packRequest->products);
-
-            $this->assertEquals($expected, $result);
+            $strategy->pack($packRequest->products);
         } catch (\Throwable $e) {
             $this->assertInstanceOf(\Throwable::class, $expected);
             $this->assertEquals($expected, $e);
@@ -75,7 +88,7 @@ class FallbackPackingStrategyTest extends TestCase
                     'weight' => 55,
                 ],
             ],
-            'expected' => new PackageOutputDto(50, 50, 50, 100),
+            'expected' => 0,
         ];
 
         yield 'multiple suitable boxes, smallest picked' => [
@@ -115,7 +128,7 @@ class FallbackPackingStrategyTest extends TestCase
                     'weight' => 20,
                 ],
             ],
-            'expected' => new PackageOutputDto(25, 20, 15, 70),
+            'expected' => 1,
         ];
     }
 

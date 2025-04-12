@@ -3,16 +3,20 @@
 declare(strict_types=1);
 
 use App\Application;
-use App\Chain\PackingStrategyChain;
-use App\Client\BinPacking3DClient;
-use App\Factory\BinPackingShipmentPayloadFactory;
-use App\Formatter\ErrorResponseFormatter;
-use App\Handler\PackingResponseHandler;
-use App\Provider\DoctrineBoxProvider;
-use App\Provider\StaticBoxProvider;
-use App\Service\PackingService;
-use App\Strategy\BinPacking3DStrategy;
-use App\Strategy\FallbackPackingStrategy;
+use App\Application\Formatter\ErrorResponseFormatter;
+use App\Application\Packing\ChainedStrategiesPackingCalculator;
+use App\Application\Strategy\BinPacking3DStrategy;
+use App\Application\Strategy\CacheablePackingStrategy;
+use App\Application\Strategy\SimpleFallbackPackingStrategy;
+use App\Application\Strategy\PersistingPackingStrategy;
+use App\Domain\Service\BoxDimensionCacheService;
+use App\Infrastructure\Bin3DPacking\Client\BinPacking3DClient;
+use App\Infrastructure\Bin3DPacking\Factory\BinPackingShipmentPayloadFactory;
+use App\Infrastructure\Bin3DPacking\Handler\PackingResponseHandler;
+use App\Infrastructure\Doctrine\Provider\DoctrineBoxProvider;
+use App\Infrastructure\Doctrine\Repository\PackagingRepository;
+use App\Infrastructure\Doctrine\Repository\PackingResultRepository;
+use App\Infrastructure\Provider\StaticBoxProvider;
 use Doctrine\ORM\EntityManagerInterface;
 use Monolog\Handler\StreamHandler;
 use Monolog\Logger;
@@ -86,32 +90,58 @@ $binPacking3DClient = new BinPacking3DClient(
 $doctrineBoxProvider = new DoctrineBoxProvider($entityManager);
 $staticBoxProvider = new StaticBoxProvider();
 
+$cache = new FilesystemAdapter();
+//$cache->clear();
+
 $binPackingShipmentPayloadFactory = new BinPackingShipmentPayloadFactory();
 $packingResponseHandler = new PackingResponseHandler($logger);
+
+$packagingRepository = new PackagingRepository($entityManager);
+$packingResultRepository = new PackingResultRepository($entityManager);
 
 $binPacking3DStrategy = new BinPacking3DStrategy(
     $binPacking3DClient,
     $doctrineBoxProvider, // swap possibility
     $binPackingShipmentPayloadFactory,
     $packingResponseHandler,
+    $packagingRepository,
     $logger
 );
 
-$fallbackPackingStrategy = new FallbackPackingStrategy($doctrineBoxProvider);
-$packingStrategyChain = new PackingStrategyChain([ // strategy configuration
+$boxDimensionCacheService = new BoxDimensionCacheService();
+
+$binPacking3DStrategyWithPersistDecorator = new PersistingPackingStrategy(
     $binPacking3DStrategy,
-    $fallbackPackingStrategy
+    $boxDimensionCacheService,
+    $packingResultRepository,
+    $entityManager,
+    $logger
+);
+
+$binPacking3DStrategyWithPersistAndCacheDecorator = new CacheablePackingStrategy(
+    $binPacking3DStrategyWithPersistDecorator,
+    $boxDimensionCacheService,
+    $cache,
+    $logger
+);
+
+$fallbackPackingStrategy = new SimpleFallbackPackingStrategy($doctrineBoxProvider, $packagingRepository);
+$bin3DPackingWithFallBackChain = new ChainedStrategiesPackingCalculator([ // strategy configuration
+    $binPacking3DStrategyWithPersistAndCacheDecorator,
+    new PersistingPackingStrategy($fallbackPackingStrategy, $boxDimensionCacheService, $packingResultRepository, $entityManager, $logger)
 ]);
 
-$cache = new FilesystemAdapter();
-//$cache->clear();
+//$bin3DPackingWithLibAndFallback = new ChainedStrategiesPackingCalculator([ // strategy configuration
+//    $binPacking3DStrategy,
+//    // here that lib
+//    $fallbackPackingStrategy,
+//]);
 
 $validator = Validation::createValidatorBuilder()->enableAttributeMapping()->getValidator();
 
-$packingService = new PackingService($entityManager, $cache, $packingStrategyChain);
 $errorResponseFormatter = new ErrorResponseFormatter();
 
-$application = new Application($serializer, $validator, $packingService, $errorResponseFormatter, $logger);
+$application = new Application($serializer, $validator, $bin3DPackingWithFallBackChain, $errorResponseFormatter, $logger);
 $response = $application->run($request);
 
 foreach ($client->getTracedRequests() as $i => $tracedRequest) {
@@ -129,7 +159,7 @@ foreach ($request->headers->all() as $key => $value) {
 echo "Request:\n" . $request->getContent() . "\n";
 
 echo ">>> Out:\n";
-echo sprintf("Status: %s\n", $response->getStatusCode());
+echo "Status: " . $response->getStatusCode() . "\n";
 echo "Headers:\n";
 foreach ($response->headers->all() as $key => $value) {
     echo sprintf("  %s: %s\n", $key, implode(', ', $value));
