@@ -41,9 +41,12 @@ final class BoxDimensionCacheService
      */
     private function normalizeBoxes(array $products): array
     {
-        $normalized = array_map(fn (ProductDTO $product) => $this->normalizeBox($product->getDimensions()), $products);
+        $normalized = array_map(
+            fn (ProductDto $product) => $this->normalizeBox($product->getDimensions()),
+            $products
+        );
 
-        usort($normalized, fn ($a, $b) => strcmp(implode(self::SEPARATOR_COMMA, $a), implode(self::SEPARATOR_COMMA, $b)));
+        usort($normalized, fn (array $a, array $b) => $a <=> $b);
 
         return $normalized;
     }

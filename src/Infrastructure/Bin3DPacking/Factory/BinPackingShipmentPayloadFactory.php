@@ -36,6 +36,7 @@ class BinPackingShipmentPayloadFactory
             'h' => $bin['height'],
             'd' => $bin['length'],
             'max_wg' => $bin['maxWeight'],
+            //            'vr' => 1, // vertical rotation 1/0
         ], $bins);
     }
 

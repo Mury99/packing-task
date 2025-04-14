@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace App\Tests\Unit\Strategy;
+namespace App\Tests\Unit\Application\Strategy;
 
 use App\Application\Dto\ProductDto;
 use App\Application\Strategy\SimpleFallbackPackingStrategy;
@@ -14,7 +14,7 @@ use App\Infrastructure\Bin3DPacking\Request\PackRequest;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 
-class FallbackPackingStrategyTest extends TestCase
+class SimpleFallbackPackingStrategyTest extends TestCase
 {
     #[DataProvider('packDataProviderHappyPaths')]
     #[DataProvider('packDataProviderUnhappyPaths')]
