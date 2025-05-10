@@ -54,7 +54,7 @@ class ApplicationTest extends TestCase
 
     public function testRunWithValidData(): void
     {
-        $requestContent = json_encode([
+        $requestContent = (string) json_encode([
             'products' => [
                 [
                     'id' => 1,
@@ -94,19 +94,19 @@ class ApplicationTest extends TestCase
 
         $this->assertInstanceOf(JsonResponse::class, $response);
         $this->assertJsonStringEqualsJsonString(
-            json_encode([
+            (string) json_encode([
                 'width' => 20,
                 'height' => 20,
                 'length' => 20,
                 'weight' => 50,
             ]),
-            $response->getContent()
+            (string) $response->getContent()
         );
     }
 
     public function testRunWithValidationErrors(): void
     {
-        $requestContent = json_encode([
+        $requestContent = (string) json_encode([
             'products' => [
                 [
                     'id' => 230,
@@ -163,7 +163,7 @@ class ApplicationTest extends TestCase
                 'property' => 'products[0].weight',
                 'message' => 'This value should be positive.',
             ],
-        ], json_decode($response->getContent(), true));
+        ], json_decode((string) $response->getContent(), true));
         $this->assertSame(Response::HTTP_UNPROCESSABLE_ENTITY, $response->getStatusCode());
     }
 }

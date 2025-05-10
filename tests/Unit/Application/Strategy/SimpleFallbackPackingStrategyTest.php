@@ -12,10 +12,17 @@ use App\Domain\Provider\BoxProviderInterface;
 use App\Domain\Repository\PackagingRepositoryInterface;
 use App\Infrastructure\Bin3DPacking\Request\PackRequest;
 use PHPUnit\Framework\Attributes\DataProvider;
+use PHPUnit\Framework\MockObject\Exception;
 use PHPUnit\Framework\TestCase;
 
 class SimpleFallbackPackingStrategyTest extends TestCase
 {
+    /**
+     * @param array<array{id: int, width: float|int, height: float|int, length: float|int, maxWeight: float|int}> $boxes
+     * @param array<array{id: int, width: float|int, height: float|int, length: float|int, weight: float|int}> $products
+     *
+     * @throws Exception
+     */
     #[DataProvider('packDataProviderHappyPaths')]
     #[DataProvider('packDataProviderUnhappyPaths')]
     public function testPackFindsSuitableBox(array $boxes, array $products, int|\Throwable $expected): void
@@ -205,6 +212,9 @@ class SimpleFallbackPackingStrategyTest extends TestCase
         ];
     }
 
+    /**
+     * @param array<array{id: int, width: float|int, height: float|int, length: float|int, weight: float|int}> $productData
+     */
     private function createPackRequest(array $productData): PackRequest
     {
         $products = [];

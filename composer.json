@@ -34,6 +34,6 @@
         }
     },
     "scripts": {
-        "tests": "vendor/bin/ecs && vendor/bin/phpstan analyse -c phpstan.neon && vendor/bin/phpunit tests"
+        "tests": "vendor/bin/ecs && php -d memory_limit=1G vendor/bin/phpstan analyse -c phpstan.neon && vendor/bin/phpunit tests"
     }
 }
