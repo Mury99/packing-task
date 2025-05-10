@@ -13,6 +13,7 @@ use App\Domain\Service\BoxDimensionCacheService;
 use App\Infrastructure\Bin3DPacking\Client\BinPacking3DClient;
 use App\Infrastructure\Bin3DPacking\Factory\BinPackingShipmentPayloadFactory;
 use App\Infrastructure\Bin3DPacking\Handler\PackingResponseHandler;
+use App\Infrastructure\Bin3DPacking\Logger\PackingErrorLogger;
 use App\Infrastructure\Doctrine\Provider\DoctrineBoxProvider;
 use App\Infrastructure\Doctrine\Repository\PackagingRepository;
 use App\Infrastructure\Doctrine\Repository\PackingResultRepository;
@@ -94,7 +95,9 @@ $cache = new FilesystemAdapter();
 //$cache->clear();
 
 $binPackingShipmentPayloadFactory = new BinPackingShipmentPayloadFactory();
-$packingResponseHandler = new PackingResponseHandler($logger);
+$packingResponseHandler = new PackingResponseHandler(
+    new PackingErrorLogger($logger),
+);
 
 $packagingRepository = new PackagingRepository($entityManager);
 $packingResultRepository = new PackingResultRepository($entityManager);

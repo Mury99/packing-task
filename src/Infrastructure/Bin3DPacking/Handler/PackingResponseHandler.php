@@ -7,25 +7,26 @@ namespace App\Infrastructure\Bin3DPacking\Handler;
 use App\Domain\Exception\MultipleBinsNotSupportedException;
 use App\Domain\Exception\PackingException;
 use App\Domain\Exception\SuitablePackageNotFoundException;
-use Psr\Log\LoggerInterface;
+use App\Infrastructure\Bin3DPacking\Dto\PackedBin;
+use App\Infrastructure\Bin3DPacking\Logger\PackingErrorLogger;
 
 readonly class PackingResponseHandler
 {
     public function __construct(
-        private ?LoggerInterface $logger = null,
+        private PackingErrorLogger $errorLogger,
     ) {
     }
 
     /**
-     * @throws MultipleBinsNotSupportedException
+     * @param array<string, mixed> $response
      * @throws PackingException
      * @throws SuitablePackageNotFoundException
      *
-     * @param array<string, mixed> $response
+     * @throws MultipleBinsNotSupportedException
      */
-    public function handle(array $response): string
+    public function handle(array $response): PackedBin
     {
-        $this->logErrorsIfAny($response['errors']);
+        $this->errorLogger->log($response['errors']);
         $status = $response['status'];
 
         $this->handleNotPackedItems($response['not_packed_items']);
@@ -38,16 +39,16 @@ readonly class PackingResponseHandler
     }
 
     /**
-     * @throws MultipleBinsNotSupportedException
+     * @param array<int, mixed> $bins
      * @throws SuitablePackageNotFoundException
      *
-     * @param array<int, mixed> $bins
+     * @throws MultipleBinsNotSupportedException
      */
-    private function buildOutput(array $bins): string
+    private function buildOutput(array $bins): PackedBin
     {
         return match (count($bins)) {
             0 => throw new SuitablePackageNotFoundException(),
-            1 => $bins[0]['bin_data']['id'],
+            1 => new PackedBin($bins[0]['bin_data']['id']),
             default => throw new MultipleBinsNotSupportedException(sprintf(
                 'Multiple bins (%d) were returned, but only one bin is supported at the moment',
                 count($bins)
@@ -56,35 +57,8 @@ readonly class PackingResponseHandler
     }
 
     /**
-     * @param array<string, mixed> $errors
-     */
-    private function logErrorsIfAny(array $errors): void
-    {
-        foreach ($errors as $error) {
-            $this->logError($error);
-        }
-    }
-
-    /**
-     * @param array<string, mixed> $error
-     */
-    private function logError(array $error): void
-    {
-        $level = $error['level'];
-        $message = sprintf('Packing error [%s]: %s', $level, $error['message']);
-
-        match ($level) {
-            'critical' => $this->logger?->critical($message),
-            'warning' => $this->logger?->warning($message),
-            'notice' => $this->logger?->notice($message),
-            default => $this->logger?->error($message),
-        };
-    }
-
-    /**
-     * @throws SuitablePackageNotFoundException
-     *
      * @param array<array{id: string, w: float|int, h: float|int, d: float|int, q: float|int}> $notPackedItems
+     * @throws SuitablePackageNotFoundException
      */
     private function handleNotPackedItems(array $notPackedItems): void
     {

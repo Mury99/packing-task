@@ -36,8 +36,8 @@ readonly class BinPacking3DStrategy implements PackingStrategyInterface
 
         try {
             $response = $this->packingClient->packShipment($payload)->toArray();
-            $packageId = $this->responseHandler->handle($response['response']);
-            $packaging = $this->packagingRepository->findById((int) $packageId);
+            $packedBin = $this->responseHandler->handle($response['response']);
+            $packaging = $this->packagingRepository->findById($packedBin->getId());
 
             if ($packaging === null) {
                 throw new SuitablePackageNotFoundException('No packaging found for the selected box dimensions');

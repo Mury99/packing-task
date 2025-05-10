@@ -19,7 +19,7 @@ class PackingResult
     #[ORM\Column(length: 48, unique: true)]
     private string $hash;
 
-    #[Orm\ManyToOne]
+    #[ORM\ManyToOne]
     private Packaging $packaging;
 
     #[ORM\Column(type: Types::DATETIME_IMMUTABLE)]
